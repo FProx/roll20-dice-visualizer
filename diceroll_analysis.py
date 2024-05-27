@@ -13,8 +13,8 @@ parser.add_argument('-d', '--dice_size', type=int, default=20)
 parser.add_argument('--pseudonymized', action='store_true', default=False)
 
 player_pattern = br'data-playerid="([^"]+)">(?:(?!<div class="message).)+'
-dice_pattern = br'diceroll d(\d+).+?didroll">(\d+)'
-name_pattern = br'<span class="by">([^:]+):</span>'
+dice_pattern = r'diceroll d(\d+).+?didroll">(\d+)'
+name_pattern = r'<span class="by">([^:]+):</span>'
 
 def plot_dice_rolls_of_size(df, dice_size=20):
     dsize_df = df.loc[df['dice_size'] == dice_size]
@@ -57,17 +57,18 @@ def create_dataframe_from_roll20_chat(raw_text_path, is_pseudonomized=False):
         file_data = mmap.mmap(file.fileno(), 0)
         message_matches = re.finditer(player_pattern, file_data)
         for message_match in message_matches:
+            message = message_match.group(0).decode('utf-8')
             playerid = message_match.group(1).decode('utf-8')
             if not (is_pseudonomized or playerid in player_name_map.keys()):
-                name_match = re.search(name_pattern, message_match.group(0))
+                name_match = re.search(name_pattern, message)
                 if name_match:
-                    player_name_map[playerid] = name_match.group(1).decode('utf-8')
-            diceroll_matches = re.finditer(dice_pattern, message_match.group(0))
+                    player_name_map[playerid] = name_match.group(1)
+            diceroll_matches = re.finditer(dice_pattern, message)
             for diceroll_match in diceroll_matches:
                 size, roll = diceroll_match.groups()
                 roll_data['playerid'].append(playerid)
-                roll_data['dice_size'].append(int(size.decode('utf-8')))
-                roll_data['dice_roll'].append(int(roll.decode('utf-8')))
+                roll_data['dice_size'].append(int(size))
+                roll_data['dice_roll'].append(int(roll))
     
     roll_df = pd.DataFrame.from_dict(roll_data, orient='columns')
     if not is_pseudonomized:
