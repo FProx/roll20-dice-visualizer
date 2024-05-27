@@ -35,6 +35,7 @@ def plot_dice_rolls_of_size(df, dice_size=20):
         player_rolls_total = total_rolls_per_player.at[player, 'size']
         
         roll_description = player_rolls['dice_roll'].describe()
+        player_mean = roll_description['mean']
         percentiles = np.array([roll_description['25%'], roll_description['50%'], roll_description['75%'], roll_description['max']])
         player_result_counts['nearest_distance'] = player_result_counts.apply(lambda row: min(row['dice_roll'], abs(row['dice_roll'] - percentiles).min()), axis=1)
         
@@ -45,7 +46,7 @@ def plot_dice_rolls_of_size(df, dice_size=20):
         plt.xlabel(f'd{dice_size} result')
         plt.yticks(np.arange(0, player_result_counts['player_percentage'].max(), .01))
         plt.ylabel('percentage')
-        title = f'd{dice_size} distribution for {player_name} ({player_rolls_total} rolls)\nRMSE={player_rmse:.4f}; MAE={player_mae:.4f};'
+        title = f'd{dice_size} distribution for {player_name} ({player_rolls_total} rolls)\nMean={player_mean:.2f}; RMSE={player_rmse:.4f}; MAE={player_mae:.4f};'
         plt.title(title)
         plt.show()
 
