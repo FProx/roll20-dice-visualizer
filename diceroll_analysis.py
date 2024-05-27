@@ -7,7 +7,7 @@ import seaborn as sns
 
 parser = argparse.ArgumentParser(prog='Roll20 Dice Analyzer',
                                  description='This script takes in a chat archive from roll20.net and generates plots with dice distributions for each player.',
-                                 epilog='For inquiries, please contact @FProx on GitHub https://github.com/FProx')
+                                 epilog='For inquiries, please contact @FProx on GitHub: https://github.com/FProx')
 parser.add_argument('file_path', help='relative path to chat archive. Its format should be .htm')
 parser.add_argument('-d', '--dice_size', type=int, default=20)
 parser.add_argument('--pseudonymized', action='store_true', default=False)
