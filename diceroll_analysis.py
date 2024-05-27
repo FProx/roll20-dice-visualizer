@@ -9,6 +9,8 @@ parser = argparse.ArgumentParser(prog='Roll20 Dice Analyzer',
                                  description='This script takes in a chat archive from roll20.net and generates plots with dice distributions for each player.',
                                  epilog='For inquiries, please contact @FProx on GitHub https://github.com/FProx')
 parser.add_argument('file_path', help='relative path to chat archive. Its format should be .htm')
+parser.add_argument('-d', '--dice_size', type=int, default=20)
+parser.add_argument('--pseudonymized', action='store_true', default=False)
 
 player_pattern = br'data-playerid="([^"]+)">(?:(?!<div class="message).)+'
 dice_pattern = br'diceroll d(\d+).+?didroll">(\d+)'
@@ -72,11 +74,10 @@ def create_dataframe_from_roll20_chat(raw_text_path, is_pseudonomized=False):
         roll_df['player_name'] = roll_df.apply(lambda row: player_name_map.get(row['playerid'], None), axis=1)
     return roll_df
 
-def main(filepath):
-    roll_df = create_dataframe_from_roll20_chat(filepath)
-    plot_dice_rolls_of_size(roll_df)
+def main(args):
+    roll_df = create_dataframe_from_roll20_chat(args.file_path, args.pseudonymized)
+    plot_dice_rolls_of_size(roll_df, args.dice_size)
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    file_path = args.file_path
-    main(file_path)
+    main(args)
