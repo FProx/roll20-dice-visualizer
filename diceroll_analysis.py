@@ -25,24 +25,38 @@ def normalize_dice_df(df):
     sns.set_style('whitegrid')
     
     # absolute numbers
-    sns.histplot(norm_df, x='percentage', hue='player_name', stat='count', bins=10, common_norm=True, kde=True, element='step', fill=False)
+    ax = sns.histplot(norm_df, x='percentage', hue='player_name', stat='count', bins=10, common_norm=True, kde=True, element='step', fill=False)
+    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
     title = f'Absolute dice distribution for all players'
     plt.title(title)
     plt.xlim(0, 1)
+    plt.xticks(np.arange(0, 1.1, .1))
+    plt.xlabel('Dice Result Percentile')
+    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
+    plt.tight_layout()
     plt.show()
     
     # probability together
-    sns.histplot(norm_df, x='percentage', hue='player_name', stat='probability', bins=10, common_norm=True, kde=True, element='step', fill=False)
+    ax = sns.histplot(norm_df, x='percentage', hue='player_name', stat='probability', bins=10, common_norm=True, kde=True, element='step', fill=False)
+    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
     title = f'Relative dice distribution for all players combined'
     plt.title(title)
     plt.xlim(0, 1)
+    plt.xticks(np.arange(0, 1.1, .1))
+    plt.xlabel('Dice Result Percentile')
+    plt.tight_layout()
     plt.show()
     
     # probability separated
-    sns.histplot(norm_df, x='percentage', hue='player_name', stat='probability', common_norm=False, kde=True, element='step', fill=False)
+    ax = sns.histplot(norm_df, x='percentage', hue='player_name', stat='probability', common_norm=False, kde=True, element='step', fill=False)
+    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
     title = f'Relative dice distribution for each player separately'
     plt.title(title)
     plt.xlim(0, 1)
+    plt.xticks(np.arange(0, 1.1, .1))
+    plt.xlabel('Dice Result Percentile')
+    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
+    plt.tight_layout()
     plt.show()
 
 def get_dice_rolls_of_size(df, dice_size=20):
