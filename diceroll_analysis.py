@@ -19,8 +19,8 @@ dice_pattern = r'diceroll d(\d+).+?didroll">(\d+)'
 name_pattern = r'<span class="by">([^:]+):</span>'
 
 def normalize_dice_df(df):
-    norm_df = df.copy() # TODO clean up
-    norm_df['percentage'] = (norm_df['dice_roll']-1)/(norm_df['dice_size']-1)  # TODO find better name  
+    norm_df = df.copy()
+    norm_df['percentage'] = (norm_df['dice_roll']-1)/(norm_df['dice_size']-1)
     
     sns.set_style('whitegrid')
     
