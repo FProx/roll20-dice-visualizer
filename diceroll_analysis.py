@@ -12,11 +12,40 @@ parser.add_argument('file_path', help='relative path to chat archive. Its format
 parser.add_argument('-d', '--dice_size', type=int, default=20)
 parser.add_argument('--pseudonymized', action='store_true', default=False)
 
+DICE_SIZES = [4, 6, 8, 10, 12, 20, 100]
+
 player_pattern = br'data-playerid="([^"]+)">(?:(?!<div class="message).)+'
 dice_pattern = r'diceroll d(\d+).+?didroll">(\d+)'
 name_pattern = r'<span class="by">([^:]+):</span>'
 
-def plot_dice_rolls_of_size(df, dice_size=20):
+def normalize_dice_df(df):
+    norm_df = df.copy() # TODO clean up
+    norm_df['percentage'] = (norm_df['dice_roll']-1)/(norm_df['dice_size']-1)  # TODO find better name  
+    
+    sns.set_style('whitegrid')
+    
+    # absolute numbers
+    sns.histplot(norm_df, x='percentage', hue='player_name', stat='count', bins=10, common_norm=True, kde=True, element='step', fill=False)
+    title = f'Absolute dice distribution for all players'
+    plt.title(title)
+    plt.xlim(0, 1)
+    plt.show()
+    
+    # probability together
+    sns.histplot(norm_df, x='percentage', hue='player_name', stat='probability', bins=10, common_norm=True, kde=True, element='step', fill=False)
+    title = f'Relative dice distribution for all players combined'
+    plt.title(title)
+    plt.xlim(0, 1)
+    plt.show()
+    
+    # probability separated
+    sns.histplot(norm_df, x='percentage', hue='player_name', stat='probability', common_norm=False, kde=True, element='step', fill=False)
+    title = f'Relative dice distribution for each player separately'
+    plt.title(title)
+    plt.xlim(0, 1)
+    plt.show()
+
+def get_dice_rolls_of_size(df, dice_size=20):
     dsize_df = df.loc[df['dice_size'] == dice_size]
     unique_result_counts = dsize_df.groupby(df.columns.tolist(), as_index=False).size()
     total_rolls_per_player = unique_result_counts[['playerid', 'size']].groupby(['playerid']).sum()
@@ -78,7 +107,8 @@ def create_dataframe_from_roll20_chat(raw_text_path, is_pseudonomized=False):
 
 def main(args):
     roll_df = create_dataframe_from_roll20_chat(args.file_path, args.pseudonymized)
-    plot_dice_rolls_of_size(roll_df, args.dice_size)
+    normalize_dice_df(roll_df)
+    #get_dice_rolls_of_size(roll_df, args.dice_size)
 
 if __name__ == '__main__':
     args = parser.parse_args()
