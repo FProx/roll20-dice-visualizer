@@ -15,6 +15,7 @@ names_group.add_argument('-p', '--players', nargs='+')
 names_group.add_argument('-x', '--exclude', nargs='+')
 parser.add_argument('--absolute', action='store_true', default=False)
 parser.add_argument('--pseudonymized', action='store_true', default=False)
+parser.add_argument('-s', '--save_figure', action='store', default=False)
 
 player_pattern = br'data-playerid="([^"]+)">(?:(?!<div class="message).)+'
 dice_pattern = r'diceroll d(\d+).+?didroll">(\d+)'
@@ -91,7 +92,7 @@ def generate_plot_args(df, dice_size=None, show_count=False):
     }
     return figure_args, histplot_args
 
-def plot_dice_results(df, title, xlabel, xticks, **histplot_args):
+def plot_dice_results(df, title, xlabel, xticks, save_figure=False, **histplot_args):
     sns.set_style('whitegrid')
     
     ax = sns.histplot(df, **histplot_args)
@@ -106,7 +107,10 @@ def plot_dice_results(df, title, xlabel, xticks, **histplot_args):
     if ax.get_legend():
         sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1), title='Player Name (# Rolls)')
         plt.tight_layout()
-    plt.show()
+    if save_figure:
+        plt.savefig(f'{save_figure}/{title}.svg')
+    else:
+        plt.show()
 
 def main(args):
     roll_df = create_dataframe_from_roll20_chat(args.file_path, args.players, args.exclude, args.pseudonymized)
@@ -115,7 +119,7 @@ def main(args):
     else:
         roll_df = filter_dice_size(roll_df, args.dice_size)
     figure_args, histplot_args = generate_plot_args(roll_df, args.dice_size, args.absolute)
-    plot_dice_results(**figure_args, **histplot_args)
+    plot_dice_results(**figure_args, **histplot_args, save_figure=args.save_figure)
 
 if __name__ == '__main__':
     args = parser.parse_args()
