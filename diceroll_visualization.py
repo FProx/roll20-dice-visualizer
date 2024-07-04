@@ -12,7 +12,7 @@ def iso_datetime_from_string(input):
     except ValueError:
         raise argparse.ArgumentTypeError(f'not a valid date: {input!r}\nPlease specify the date using ISO format.')
 
-parser = argparse.ArgumentParser(prog='Roll20 Dice Analyzer',
+parser = argparse.ArgumentParser(prog='Roll20 Dice Vizualizer',
                                  description='This script takes in a chat archive from roll20.net and generates plots with dice distributions for each player.',
                                  epilog='For inquiries, please contact @FProx on GitHub: https://github.com/FProx')
 # required arguments
