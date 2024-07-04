@@ -9,7 +9,10 @@ parser = argparse.ArgumentParser(prog='Roll20 Dice Analyzer',
                                  description='This script takes in a chat archive from roll20.net and generates plots with dice distributions for each player.',
                                  epilog='For inquiries, please contact @FProx on GitHub: https://github.com/FProx')
 parser.add_argument('file_path', help='relative path to chat archive. Its format should be .htm')
-parser.add_argument('-d', '--dice_size', type=int, default=20)
+parser.add_argument('-d', '--dice_size', type=int)
+names_group = parser.add_mutually_exclusive_group()
+names_group.add_argument('-p', '--players', nargs='+')
+names_group.add_argument('-x', '--exclude', nargs='+')
 parser.add_argument('--pseudonymized', action='store_true', default=False)
 
 DICE_SIZES = [4, 6, 8, 10, 12, 20, 100]
@@ -18,14 +21,16 @@ player_pattern = br'data-playerid="([^"]+)">(?:(?!<div class="message).)+'
 dice_pattern = r'diceroll d(\d+).+?didroll">(\d+)'
 name_pattern = r'<span class="by">([^:]+):</span>'
 
-def normalize_dice_df(df):
+def old_normalize_dice_df(df):
     norm_df = df.copy()
     norm_df['percentage'] = (norm_df['dice_roll']-1)/(norm_df['dice_size']-1)
+    
+    player_column = 'player_name' if 'player_name' in norm_df.columns else 'playerid'
     
     sns.set_style('whitegrid')
     
     # absolute numbers
-    ax = sns.histplot(norm_df, x='percentage', hue='player_name', stat='count', bins=10, common_norm=True, kde=True, element='step', fill=False)
+    ax = sns.histplot(norm_df, x='percentage', hue=player_column, stat='count', bins=6, common_norm=True, element='step', fill=False)
     sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
     title = f'Absolute dice distribution for all players'
     plt.title(title)
@@ -37,7 +42,7 @@ def normalize_dice_df(df):
     plt.show()
     
     # probability together
-    ax = sns.histplot(norm_df, x='percentage', hue='player_name', stat='probability', bins=10, common_norm=True, kde=True, element='step', fill=False)
+    ax = sns.histplot(norm_df, x='percentage', hue=player_column, stat='probability', bins=6, common_norm=True, element='step', fill=False)
     sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
     title = f'Relative dice distribution for all players combined'
     plt.title(title)
@@ -48,7 +53,7 @@ def normalize_dice_df(df):
     plt.show()
     
     # probability separated
-    ax = sns.histplot(norm_df, x='percentage', hue='player_name', stat='probability', common_norm=False, kde=True, element='step', fill=False)
+    ax = sns.histplot(norm_df, x='percentage', hue=player_column, stat='probability', bins=6, common_norm=False, element='step', fill=False)
     sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
     title = f'Relative dice distribution for each player separately'
     plt.title(title)
@@ -93,11 +98,11 @@ def get_dice_rolls_of_size(df, dice_size=20):
         plt.title(title)
         plt.show()
 
-def create_dataframe_from_roll20_chat(raw_text_path, is_pseudonomized=False):
+def create_dataframe_from_roll20_chat(raw_text_path, only_include_players=None, exclude_players=None, is_pseudonomized=False):
     roll_data = {'playerid': [], 'dice_size': [], 'dice_roll': []}
-    player_name_map = {}
+    player_name_map = {} # maps playerid to the player name as it would be displayed in the chat log.
     
-    with open(raw_text_path, 'r+') as file:
+    with open(raw_text_path, 'r+') as file: # fill roll_data dict
         file_data = mmap.mmap(file.fileno(), 0)
         message_matches = re.finditer(player_pattern, file_data)
         for message_match in message_matches:
@@ -114,15 +119,51 @@ def create_dataframe_from_roll20_chat(raw_text_path, is_pseudonomized=False):
                 roll_data['dice_size'].append(int(size))
                 roll_data['dice_roll'].append(int(roll))
     
-    roll_df = pd.DataFrame.from_dict(roll_data, orient='columns')
-    if not is_pseudonomized:
-        roll_df['player_name'] = roll_df.apply(lambda row: player_name_map.get(row['playerid'], None), axis=1)
-    return roll_df
+    roll_df = pd.DataFrame.from_dict(roll_data, orient='columns') # create df from dict and filter it
+    roll_df['display_name'] = roll_df['playerid'] if is_pseudonomized else roll_df.apply(lambda row: player_name_map.get(row['playerid'], None), axis=1)
+    if only_include_players:
+        roll_df = roll_df.loc[roll_df['display_name'].isin(only_include_players)]
+    elif exclude_players:
+        roll_df = roll_df.drop(roll_df.loc[roll_df['display_name'].isin(exclude_players)].index)
+    
+    return roll_df[['display_name', 'dice_size', 'dice_roll']]
+
+def normalize_dice_df(df):
+    norm_df = df.copy()
+    norm_df['normed_dice_roll'] = (norm_df['dice_roll']-1)/(norm_df['dice_size']-1)
+    return norm_df
+
+def additional_statistics(df):
+    pass
+
+def plot_dice_results(df, title, xlabel, xticks, **histplot_args):
+    sns.set_style('whitegrid')
+    
+    ax = sns.histplot(df, **histplot_args)
+    plt.title(title)
+    plt.xlim(0, df[histplot_args['x']].max())
+    plt.xticks(xticks)
+    plt.xlabel(xlabel)
+    
+    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
+    plt.tight_layout()
+    plt.show()
 
 def main(args):
-    roll_df = create_dataframe_from_roll20_chat(args.file_path, args.pseudonymized)
-    normalize_dice_df(roll_df)
-    #get_dice_rolls_of_size(roll_df, args.dice_size)
+    roll_df = create_dataframe_from_roll20_chat(args.file_path, args.players, args.exclude, args.pseudonymized)
+    if not args.dice_size:
+        roll_df = normalize_dice_df(roll_df)
+        plot_dice_results(roll_df,
+                          title=f'Absolute dice distribution for all players combined',
+                          xlabel='Dice Result Percentile',
+                          xticks=np.arange(0, 1.1, .1),
+                          x='normed_dice_roll', hue='display_name', stat='count', bins=6, common_norm=True, element='step', fill=False)
+        
+        plot_dice_results(roll_df,
+                          title=f'Relative dice distribution for each player separately',
+                          xlabel='Dice Result Percentile',
+                          xticks=np.arange(0, 1.1, .1),
+                          x='normed_dice_roll', hue='display_name', stat='probability', bins=6, common_norm=False, element='step', fill=False)
 
 if __name__ == '__main__':
     args = parser.parse_args()
