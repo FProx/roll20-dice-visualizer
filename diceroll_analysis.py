@@ -95,6 +95,7 @@ def generate_plot_args(df, dice_type=None, show_count=False):
 
 def plot_dice_results(df, title, xlabel, xticks, save_figure=False, **histplot_args):
     sns.set_style('whitegrid')
+    sns.set_palette('muted')
     
     ax = sns.histplot(df, **histplot_args)
     plt.title(title)
