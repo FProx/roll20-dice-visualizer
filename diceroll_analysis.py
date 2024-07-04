@@ -13,90 +13,12 @@ parser.add_argument('-d', '--dice_size', type=int)
 names_group = parser.add_mutually_exclusive_group()
 names_group.add_argument('-p', '--players', nargs='+')
 names_group.add_argument('-x', '--exclude', nargs='+')
+parser.add_argument('--absolute', action='store_true', default=False)
 parser.add_argument('--pseudonymized', action='store_true', default=False)
-
-DICE_SIZES = [4, 6, 8, 10, 12, 20, 100]
 
 player_pattern = br'data-playerid="([^"]+)">(?:(?!<div class="message).)+'
 dice_pattern = r'diceroll d(\d+).+?didroll">(\d+)'
 name_pattern = r'<span class="by">([^:]+):</span>'
-
-def old_normalize_dice_df(df):
-    norm_df = df.copy()
-    norm_df['percentage'] = (norm_df['dice_roll']-1)/(norm_df['dice_size']-1)
-    
-    player_column = 'player_name' if 'player_name' in norm_df.columns else 'playerid'
-    
-    sns.set_style('whitegrid')
-    
-    # absolute numbers
-    ax = sns.histplot(norm_df, x='percentage', hue=player_column, stat='count', bins=6, common_norm=True, element='step', fill=False)
-    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
-    title = f'Absolute dice distribution for all players'
-    plt.title(title)
-    plt.xlim(0, 1)
-    plt.xticks(np.arange(0, 1.1, .1))
-    plt.xlabel('Dice Result Percentile')
-    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
-    plt.tight_layout()
-    plt.show()
-    
-    # probability together
-    ax = sns.histplot(norm_df, x='percentage', hue=player_column, stat='probability', bins=6, common_norm=True, element='step', fill=False)
-    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
-    title = f'Relative dice distribution for all players combined'
-    plt.title(title)
-    plt.xlim(0, 1)
-    plt.xticks(np.arange(0, 1.1, .1))
-    plt.xlabel('Dice Result Percentile')
-    plt.tight_layout()
-    plt.show()
-    
-    # probability separated
-    ax = sns.histplot(norm_df, x='percentage', hue=player_column, stat='probability', bins=6, common_norm=False, element='step', fill=False)
-    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
-    title = f'Relative dice distribution for each player separately'
-    plt.title(title)
-    plt.xlim(0, 1)
-    plt.xticks(np.arange(0, 1.1, .1))
-    plt.xlabel('Dice Result Percentile')
-    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
-    plt.tight_layout()
-    plt.show()
-
-def get_dice_rolls_of_size(df, dice_size=20):
-    dsize_df = df.loc[df['dice_size'] == dice_size]
-    unique_result_counts = dsize_df.groupby(df.columns.tolist(), as_index=False).size()
-    total_rolls_per_player = unique_result_counts[['playerid', 'size']].groupby(['playerid']).sum()
-    unique_result_counts['player_percentage'] = unique_result_counts.apply(lambda row: row['size'] / total_rolls_per_player.at[row['playerid'], 'size'], axis=1)
-    
-    for player in unique_result_counts['playerid'].unique():
-        player_rolls = dsize_df.loc[dsize_df['playerid'] == player]
-        player_result_counts = unique_result_counts.loc[unique_result_counts['playerid'] == player].copy()
-        
-        player_name = player_rolls['player_name'].iat[0] if 'player_name' in player_rolls.columns.tolist() else player
-        
-        expected_percentage = 1 / dice_size
-        actual_percentages = player_result_counts['player_percentage'].tolist()
-        player_mae = np.sum([abs(x - expected_percentage) for x in actual_percentages]) / len(actual_percentages)
-        player_rmse = np.sqrt(np.sum([(x - expected_percentage)**2 for x in actual_percentages]))
-        player_rolls_total = total_rolls_per_player.at[player, 'size']
-        
-        roll_description = player_rolls['dice_roll'].describe()
-        player_mean = roll_description['mean']
-        percentiles = np.array([roll_description['25%'], roll_description['50%'], roll_description['75%'], roll_description['max']])
-        player_result_counts['nearest_distance'] = player_result_counts.apply(lambda row: min(row['dice_roll'], abs(row['dice_roll'] - percentiles).min()), axis=1)
-        
-        palette = 'flare_r'
-        sns.set_style('whitegrid')
-        ax = sns.barplot(data=player_result_counts, x='dice_roll', y='player_percentage', order=np.arange(dice_size)+1, hue='nearest_distance', palette=palette, legend=False)
-        ax.axhline(expected_percentage, c=sns.color_palette(palette)[0], ls='--')
-        plt.xlabel(f'd{dice_size} result')
-        plt.yticks(np.arange(0, player_result_counts['player_percentage'].max(), .01))
-        plt.ylabel('percentage')
-        title = f'd{dice_size} distribution for {player_name} ({player_rolls_total} rolls)\nMean={player_mean:.2f}; RMSE={player_rmse:.4f}; MAE={player_mae:.4f};'
-        plt.title(title)
-        plt.show()
 
 def create_dataframe_from_roll20_chat(raw_text_path, only_include_players=None, exclude_players=None, is_pseudonomized=False):
     roll_data = {'playerid': [], 'dice_size': [], 'dice_roll': []}
@@ -130,40 +52,70 @@ def create_dataframe_from_roll20_chat(raw_text_path, only_include_players=None, 
 
 def normalize_dice_df(df):
     norm_df = df.copy()
-    norm_df['normed_dice_roll'] = (norm_df['dice_roll']-1)/(norm_df['dice_size']-1)
+    norm_df['dice_roll'] = (norm_df['dice_roll']-1)/(norm_df['dice_size']-1)
     return norm_df
 
-def additional_statistics(df):
-    pass
+def filter_dice_size(df, dice_size):
+    filtered_df = df.loc[df['dice_size'] == dice_size]
+    return filtered_df
+
+def generate_plot_args(df, dice_size=None, show_count=False):
+    total_rolls = len(df)
+    player_total_rolls = df.groupby(['display_name']).count()['dice_size']
+    df['display_name_and_rolls'] = df['display_name'].apply(lambda name: f'{name} ({player_total_rolls[name]} rolls)')
+    
+    dice_result_dist_string = f'd{dice_size}' if dice_size else 'Dice'
+    dice_result_dist_string += ' Distribution'
+    title = f'Absolute {dice_result_dist_string}' if show_count else f'Relative {dice_result_dist_string}'
+    is_single_player = len(df['display_name'].unique()) == 1
+    if is_single_player:
+        title += f' for Player {df['display_name'].iloc[0]} ({player_total_rolls[df['display_name'].iloc[0]]} rolls)'
+    else:
+        title += f' ({total_rolls} rolls)'
+    
+    figure_args = {
+        'df': df,
+        'title': title,
+        'xlabel': 'Dice Result' if dice_size else 'Dice Result Percentile',
+        'xticks': np.arange(1, dice_size + 1, 1) if dice_size else np.arange(0, 1.1, .1)
+    }
+    histplot_args = {
+        'x': 'dice_roll',
+        'hue': None if is_single_player else 'display_name_and_rolls',
+        'stat': 'count' if show_count else 'probability',
+        'bins': dice_size if dice_size else 6,
+        'discrete': True if dice_size else False,
+        'common_norm': True if is_single_player else False,
+        'element': 'bars' if is_single_player else 'step', # for visibility
+        'fill': True if is_single_player else False
+    }
+    return figure_args, histplot_args
 
 def plot_dice_results(df, title, xlabel, xticks, **histplot_args):
     sns.set_style('whitegrid')
     
     ax = sns.histplot(df, **histplot_args)
     plt.title(title)
-    plt.xlim(0, df[histplot_args['x']].max())
+    if histplot_args['discrete']:
+        plt.xlim(df[histplot_args['x']].min() - .5, df[histplot_args['x']].max() + .5)
+    else:
+        plt.xlim(df[histplot_args['x']].min(), df[histplot_args['x']].max())
     plt.xticks(xticks)
     plt.xlabel(xlabel)
     
-    sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
-    plt.tight_layout()
+    if ax.get_legend():
+        sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1), title='Player Name (# Rolls)')
+        plt.tight_layout()
     plt.show()
 
 def main(args):
     roll_df = create_dataframe_from_roll20_chat(args.file_path, args.players, args.exclude, args.pseudonymized)
     if not args.dice_size:
         roll_df = normalize_dice_df(roll_df)
-        plot_dice_results(roll_df,
-                          title=f'Absolute dice distribution for all players combined',
-                          xlabel='Dice Result Percentile',
-                          xticks=np.arange(0, 1.1, .1),
-                          x='normed_dice_roll', hue='display_name', stat='count', bins=6, common_norm=True, element='step', fill=False)
-        
-        plot_dice_results(roll_df,
-                          title=f'Relative dice distribution for each player separately',
-                          xlabel='Dice Result Percentile',
-                          xticks=np.arange(0, 1.1, .1),
-                          x='normed_dice_roll', hue='display_name', stat='probability', bins=6, common_norm=False, element='step', fill=False)
+    else:
+        roll_df = filter_dice_size(roll_df, args.dice_size)
+    figure_args, histplot_args = generate_plot_args(roll_df, args.dice_size, args.absolute)
+    plot_dice_results(**figure_args, **histplot_args)
 
 if __name__ == '__main__':
     args = parser.parse_args()
