@@ -8,15 +8,22 @@ import seaborn as sns
 parser = argparse.ArgumentParser(prog='Roll20 Dice Analyzer',
                                  description='This script takes in a chat archive from roll20.net and generates plots with dice distributions for each player.',
                                  epilog='For inquiries, please contact @FProx on GitHub: https://github.com/FProx')
+# required arguments
 parser.add_argument('file_path', help='relative path to chat archive. Its format should be .htm')
-parser.add_argument('-d', '--dice_type', type=int, help='use this if results of a specific dice type should be explored. Please pass the side count as an integer.')
-names_group = parser.add_mutually_exclusive_group()
+
+# filter arguments
+filter_group = parser.add_argument_group(title='filter arguments', description='All of these are optional, use them to narrow down the dataset to the parts that are of interest.')
+filter_group.add_argument('-d', '--dice_type', type=int, help='use this if results of a specific dice type should be explored. Please pass the side count as an integer.')
+names_group = filter_group.add_mutually_exclusive_group()
 names_group_help_appendix = 'Separate multiple players by leaving a space. If a player name contains a space, please enclose it with ". Only exact name matches work.'
 names_group.add_argument('-p', '--players', nargs='+', help=f'display only results of one or multiple players. {names_group_help_appendix}')
 names_group.add_argument('-x', '--exclude', nargs='+', help=f'exclude one or multiple players. {names_group_help_appendix}')
-parser.add_argument('--absolute', action='store_true', default=False, help='if set, displays absolute result counts instead of probabilities (the latter is the default).')
-parser.add_argument('--pseudonymized', action='store_true', default=False, help='if set, shows pseudonomized player ids instead of the names shown in the chat window (the latter is the default).')
-parser.add_argument('-s', '--save_figure', action='store', default=False, help='if set, saves the generated figure at the specified path. By default, the generated figure will be shown to the user but not saved.')
+
+# display arguments
+display_group = parser.add_argument_group(title='display arguments', description='Change how the results should be displayed.')
+display_group.add_argument('--absolute', action='store_true', default=False, help='if set, displays absolute result counts instead of probabilities (the latter is the default).')
+display_group.add_argument('--pseudonymized', action='store_true', default=False, help='if set, shows pseudonomized player ids instead of the names shown in the chat window (the latter is the default).')
+display_group.add_argument('-s', '--save_path', action='store', help='saves the generated figure at the specified path and does not show it to the user. By default, the generated figure will be shown to the user but not saved.')
 
 player_pattern = br'data-playerid="([^"]+)">(?:(?!<div class="message).)+'
 dice_pattern = r'diceroll d(\d+).+?didroll">(\d+)'
@@ -93,7 +100,7 @@ def generate_plot_args(df, dice_type=None, show_count=False):
     }
     return figure_args, histplot_args
 
-def plot_dice_results(df, title, xlabel, xticks, save_figure=False, **histplot_args):
+def plot_dice_results(df, title, xlabel, xticks, save_path=False, **histplot_args):
     sns.set_style('whitegrid')
     sns.set_palette('muted')
     
@@ -109,8 +116,8 @@ def plot_dice_results(df, title, xlabel, xticks, save_figure=False, **histplot_a
     if ax.get_legend():
         sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1), title='Player Name (# Rolls)')
         plt.tight_layout()
-    if save_figure:
-        plt.savefig(f'{save_figure}/{title}.svg')
+    if save_path:
+        plt.savefig(f'{save_path}/{title}.svg')
     else:
         plt.show()
 
@@ -121,7 +128,7 @@ def main(args):
     else:
         roll_df = filter_dice_type(roll_df, args.dice_type)
     figure_args, histplot_args = generate_plot_args(roll_df, args.dice_type, args.absolute)
-    plot_dice_results(**figure_args, **histplot_args, save_figure=args.save_figure)
+    plot_dice_results(**figure_args, **histplot_args, save_path=args.save_path)
 
 if __name__ == '__main__':
     args = parser.parse_args()
