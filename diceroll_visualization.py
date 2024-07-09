@@ -42,11 +42,12 @@ name_pattern = r'<span class="by">([^:]+)'
 date_pattern = r'<span class="tstamp"[^>]+>([^<]*)'
 
 date_format = '%B %d, %Y %I:%M%p' # might break if the log format changes. Keeping it here for ease of future access.
+date_today_format = '%I:%M%p' # if log is from today then no date will be shown.
 
 def create_dataframe_from_roll20_chat(raw_text_path, is_pseudonomized=False):
     roll_data = {'playerid': [], 'date': [], 'dice_type': [], 'dice_roll': []}
     player_name_map = {} # maps playerid to the player name as it would be displayed in the chat log.
-    date = None
+    date_str = None
     
     with open(raw_text_path, 'r+') as file: # fill roll_data dict
         file_data = mmap.mmap(file.fileno(), 0)
@@ -60,12 +61,16 @@ def create_dataframe_from_roll20_chat(raw_text_path, is_pseudonomized=False):
                     player_name_map[playerid] = name_match.group(1)
             date_match = re.search(date_pattern, message)
             if date_match:
-                date = date_match.group(1)
+                date_str = date_match.group(1)
             diceroll_matches = re.finditer(dice_pattern, message)
             for diceroll_match in diceroll_matches:
                 size, roll = diceroll_match.groups()
                 roll_data['playerid'].append(playerid)
-                roll_data['date'].append(datetime.strptime(date, date_format))
+                try:
+                    date = datetime.strptime(date_str, date_format)
+                except ValueError: # this occurs if date does only contain hours and minutes (which is the case if the log is from today)
+                    date = datetime.strptime(date_str, date_today_format)
+                roll_data['date'].append(date)
                 roll_data['dice_type'].append(int(size))
                 roll_data['dice_roll'].append(int(roll))
     
