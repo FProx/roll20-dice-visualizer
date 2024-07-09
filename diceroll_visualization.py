@@ -69,7 +69,8 @@ def create_dataframe_from_roll20_chat(raw_text_path, is_pseudonomized=False):
                 try:
                     date = datetime.strptime(date_str, date_format)
                 except ValueError: # this occurs if date does only contain hours and minutes (which is the case if the log is from today)
-                    date = datetime.strptime(date_str, date_today_format)
+                    date = datetime.combine(datetime.today().date(), # combine todays date
+                                            datetime.strptime(date_str, date_today_format).time()) # with the detected time
                 roll_data['date'].append(date)
                 roll_data['dice_type'].append(int(size))
                 roll_data['dice_roll'].append(int(roll))
