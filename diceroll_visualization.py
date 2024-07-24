@@ -65,7 +65,7 @@ def create_dataframe_from_roll20_chat(raw_text_path, is_pseudonomized=False):
             diceroll_matches = re.finditer(dice_pattern, message)
             for diceroll_match in diceroll_matches:
                 size, roll = diceroll_match.groups()
-                if int(roll) == 0:
+                if int(roll) == 0: # fudged rolls are always processed as a d6 that results in 0
                     continue
                 roll_data['playerid'].append(playerid)
                 try:
