@@ -113,7 +113,10 @@ def filter_df(df, only_include_players, exclude_players, before_date, after_date
 def generate_plot_args(df, dice_type=None, show_count=False):
     total_rolls = len(df)
     player_total_rolls = df.groupby(['display_name']).count()['dice_type']
-    df['display_name_and_rolls'] = df['display_name'].apply(lambda name: f'{name} ({player_total_rolls[name]} rolls)')
+    player_mean = df.groupby(['display_name']).mean()['dice_roll']
+    player_median = df.groupby(['display_name']).median()['dice_roll']
+    df['display_name_and_rolls'] = df['display_name'].apply(lambda name: 
+        f'{name} ({player_total_rolls[name]} rolls; mean: {player_mean[name]:0.2f}, median: {player_median[name]})')
     
     dice_result_dist_string = f'd{dice_type}' if dice_type else 'Dice'
     dice_result_dist_string += ' Distribution'
@@ -157,7 +160,7 @@ def plot_dice_results(df, title, xlabel, xticks, save_path=False, **histplot_arg
     ax.set_ylim(ymin=0)
     
     if ax.get_legend():
-        sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1), title='Player Name (# Rolls)')
+        sns.move_legend(ax, "lower center", draggable=True, title='Player Name (# Rolls; mean, median)')
         plt.tight_layout()
     if save_path:
         plt.savefig(f'{save_path}/{title}.svg')
