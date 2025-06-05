@@ -154,6 +154,7 @@ def plot_dice_results(df, title, xlabel, xticks, save_path=False, **histplot_arg
         plt.xlim(df[histplot_args['x']].min(), df[histplot_args['x']].max())
     plt.xticks(xticks)
     plt.xlabel(xlabel)
+    ax.set_ylim(ymin=0)
     
     if ax.get_legend():
         sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1), title='Player Name (# Rolls)')
